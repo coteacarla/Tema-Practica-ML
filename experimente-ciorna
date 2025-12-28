@@ -1,3 +1,5 @@
+#de facut decay la lr!!!!!
+
 (pentru comparatia cu sklearn am mereu 1000 iteratii)
 (pentru feateruri generalizate (coloana product_category))
 (SGD+L2)
@@ -62,17 +64,6 @@ Difference (Custom - sklearn):
   F1-Score:  -0.0080
   ROC-AUC:   -0.0055
 
-Top 10 Features (increase/decrease probability of Crazy Sauce):
-  cart_size                      +5.9383 (increases)
-  has_cheddar_sauce              -4.0903 (decreases)
-  has_garlic_sauce               -3.4868 (decreases)
-  avg_price                      -3.2635 (decreases)
-  has_blueberry_sauce            -2.8715 (decreases)
-  distinct_products              +2.8352 (increases)
-  total_value                    +2.2449 (increases)
-  has_tomato_sauce               -1.7160 (decreases)
-  has_spicy_sauce                -1.6355 (decreases)
-  has_pink_sauce                 -1.5223 (decreases)
 
   (varianta finala cred/sper)
   learning_rate=0.5,
@@ -122,3 +113,53 @@ Difference (Custom - sklearn):
   Recall:    +0.0053
   F1-Score:  +0.0026
   ROC-AUC:   -0.0028
+Final loss: 0.0161, Iterations: 15000
+
+Baseline (majority class): 0.5316
+
+Custom Implementation:
+  Accuracy:  0.9944 (+0.4628 vs baseline)
+  Precision: 0.9896
+  Recall:    1.0000
+  F1-Score:  0.9948
+  ROC-AUC:   0.9967
+
+sklearn:
+  Accuracy:  0.9916 (+0.4600 vs baseline)
+  Precision: 0.9895
+  Recall:    0.9947
+  F1-Score:  0.9921
+  ROC-AUC:   0.9995
+
+Difference (Custom - sklearn):
+  Accuracy:  +0.0028
+  Precision: +0.0001
+  Recall:    +0.0053
+  F1-Score:  +0.0026
+  ROC-AUC:   -0.0028
+
+(trebuie sa ma mai joc cu lr-ul daca cresc iteratiile tot acolo ajung)
+Final loss: 0.0160, Iterations: 50000
+
+Baseline (majority class): 0.5316
+
+Custom Implementation:
+  Accuracy:  0.9944 (+0.4628 vs baseline)
+  Precision: 0.9896
+  Recall:    1.0000
+  F1-Score:  0.9948
+  ROC-AUC:   0.9997
+
+sklearn:
+  Accuracy:  0.9916 (+0.4600 vs baseline)
+  Precision: 0.9895
+  Recall:    0.9947
+  F1-Score:  0.9921
+  ROC-AUC:   0.9995
+
+Difference (Custom - sklearn):
+  Accuracy:  +0.0028
+  Precision: +0.0001
+  Recall:    +0.0053
+  F1-Score:  +0.0026
+  ROC-AUC:   +0.0002

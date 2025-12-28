@@ -1,37 +1,26 @@
 import pandas as pd
 import numpy as np
 
-# ============================================================================
-# 1. ÎNCĂRCARE ȘI FILTRARE DATE
-# ============================================================================
 
-# Citire dataset
 df = pd.read_csv('dataset-modified.csv')
 
-# Filtrare bonuri care conțin Crazy Schnitzel
+
 bonuri_cu_crazy_schnitzel = df[df['retail_product_name'] == 'Crazy Schnitzel']['id_bon'].unique()
 df_crazy_schnitzel = df[df['id_bon'].isin(bonuri_cu_crazy_schnitzel)].copy()
 df_crazy_schnitzel = df_crazy_schnitzel.sort_values(['id_bon', 'data_bon'])
 
-# Creare coloană target: y=1 dacă bonul conține Crazy Sauce, altfel 0
+
 bonuri_cu_crazy_sauce = df_crazy_schnitzel[df_crazy_schnitzel['retail_product_name'] == 'Crazy Sauce']['id_bon'].unique()
 df_crazy_schnitzel['y'] = df_crazy_schnitzel['id_bon'].apply(lambda x: 1 if x in bonuri_cu_crazy_sauce else 0)
 
-# Salvare dataset filtrat
 df_crazy_schnitzel.to_csv('dataset-crazy-schnitzel.csv', index=False)
 
 
-# ============================================================================
-# 2. CREARE FEATURES LA NIVEL DE BON
-# ============================================================================
-
-# Procesare date temporale
 df_crazy_schnitzel['data_bon'] = pd.to_datetime(df_crazy_schnitzel['data_bon'])
 df_crazy_schnitzel['day_of_week'] = df_crazy_schnitzel['data_bon'].dt.dayofweek + 1
 df_crazy_schnitzel['is_weekend'] = (df_crazy_schnitzel['data_bon'].dt.dayofweek >= 4).astype(int)
 df_crazy_schnitzel['hour'] = df_crazy_schnitzel['data_bon'].dt.hour
 
-# Agregare la nivel de bon
 bon_features_list = []
 
 for id_bon, group in df_crazy_schnitzel.groupby('id_bon'):
