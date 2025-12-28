@@ -1,0 +1,124 @@
+(pentru comparatia cu sklearn am mereu 1000 iteratii)
+(pentru feateruri generalizate (coloana product_category))
+(SGD+L2)
+(trebuie sa mai adaug feat-uri)
+metrică	eu	sklearn	diferență
+Accuracy	65.83%	76.47%	-10.64%
+Precision	62.41%	71.20%	-8.79%
+Recall	90.00%	93.68%	-3.68%
+F1-Score	73.71%	80.91%	-7.20%
+ROC-AUC	68.06%	78.06%	-10.00%
+
+(pentru feataruri generalizate(coloana product_category) + feature cu count pentru fiecare categorie de produs)
+(SGD+L2+early stop(5 epoch))
+0.1 learning rate
+Metric       Custom     sklearn    Difference
+--------------------------------------------
+Accuracy     0.9664     0.9916     -0.0252
+Precision    0.9837     0.9895     -0.0058
+Recall       0.9526     0.9947     -0.0421
+F1           0.9679     0.9921     -0.0242
+ROC-AUC      0.9899     0.9996     -0.0097
+
+(0.5 learning ratea + SGD+L2+early stop(5 epoch)+normalizare dataset)
+Final loss: 0.0403, Iterations: 1000
+
+Custom Implementation:
+  Accuracy:  0.9776
+  Precision: 0.9892
+  Recall:    0.9684
+  F1-Score:  0.9787
+
+sklearn:
+  Accuracy:  0.9916
+  Precision: 0.9895
+  Recall:    0.9947
+  F1-Score:  0.9921
+  
+  (AM UITAT SA DAU PRINT LA ROC-AUC PANA AICI)
+  (2000 de epochs hiperparametrii la fel ca mai sus)
+  Final loss: 0.0282, Iterations: 2000
+
+Baseline (majority class): 0.5316
+
+Custom Implementation:
+  Accuracy:  0.9832 (+0.4516 vs baseline)
+  Precision: 0.9894
+  Recall:    0.9789
+  F1-Score:  0.9841
+  ROC-AUC:   0.9939
+
+sklearn:
+  Accuracy:  0.9916 (+0.4600 vs baseline)
+  Precision: 0.9895
+  Recall:    0.9947
+  F1-Score:  0.9921
+  ROC-AUC:   0.9995
+
+Difference (Custom - sklearn):
+  Accuracy:  -0.0084
+  Precision: -0.0002
+  Recall:    -0.0158
+  F1-Score:  -0.0080
+  ROC-AUC:   -0.0055
+
+Top 10 Features (increase/decrease probability of Crazy Sauce):
+  cart_size                      +5.9383 (increases)
+  has_cheddar_sauce              -4.0903 (decreases)
+  has_garlic_sauce               -3.4868 (decreases)
+  avg_price                      -3.2635 (decreases)
+  has_blueberry_sauce            -2.8715 (decreases)
+  distinct_products              +2.8352 (increases)
+  total_value                    +2.2449 (increases)
+  has_tomato_sauce               -1.7160 (decreases)
+  has_spicy_sauce                -1.6355 (decreases)
+  has_pink_sauce                 -1.5223 (decreases)
+
+  (varianta finala cred/sper)
+  learning_rate=0.5,
+  n_iterations=10000,
+  regularization=0.1,
+  early_stopping_patience=5
+  Final loss: 0.0166, Iterations: 10000
+
+Baseline (majority class): 0.5316
+
+Custom Implementation:
+  Accuracy:  0.9916 (+0.4600 vs baseline)
+  Precision: 0.9895
+  Recall:    0.9947
+  F1-Score:  0.9921
+  ROC-AUC:   0.9952
+
+sklearn:
+  Accuracy:  0.9916 (+0.4600 vs baseline)
+  Precision: 0.9895
+  Recall:    0.9947
+  F1-Score:  0.9921
+  ROC-AUC:   0.9995
+
+(15000 epochs) (inca nu converge???)
+Final loss: 0.0161, Iterations: 15000
+
+Baseline (majority class): 0.5316
+
+Custom Implementation:
+  Accuracy:  0.9944 (+0.4628 vs baseline)
+  Precision: 0.9896
+  Recall:    1.0000
+  F1-Score:  0.9948
+  ROC-AUC:   0.9967
+
+sklearn:
+  Accuracy:  0.9916 (+0.4600 vs baseline)
+  Precision: 0.9895
+  Recall:    0.9947
+  F1-Score:  0.9921
+  ROC-AUC:   0.9995
+
+Difference (Custom - sklearn):
+  Accuracy:  +0.0028
+  Precision: +0.0001
+  Recall:    +0.0053
+  F1-Score:  +0.0026
+  ROC-AUC:   -0.0028
