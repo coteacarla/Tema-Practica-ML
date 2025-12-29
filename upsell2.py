@@ -78,28 +78,32 @@ class NaiveBayesUpsell:
         for basket, ctx, prod in zip(baskets, contexts, y):
             for f in basket + list(ctx):
                 self.likelihood[prod][f] += 1
+        # Laplace smoothing mai robust
         for p in self.products:
             denom = sum(self.likelihood[p].values()) + len(self.likelihood[p])
             for f in self.likelihood[p]:
-                self.likelihood[p][f] = (self.likelihood[p][f]+1)/denom
+                self.likelihood[p][f] = (self.likelihood[p][f]+1)/(denom + 1e-6)
     def predict_proba(self, basket, ctx):
         scores = {}
         for p in self.products:
-            logp = math.log(self.prior[p])
+            logp = math.log(max(self.prior[p],1e-6))
             for f in basket + list(ctx):
                 logp += math.log(self.likelihood[p].get(f, 1e-6))
             scores[p] = math.exp(logp)
+        # normalizare
+        s = sum(scores.values())
+        if s>0:
+            for k in scores: scores[k]/=s
         return scores
 
 # --- K-NN manual vectorial ---
 class KNNUpsellVector:
-    def __init__(self, k=7):
+    def __init__(self, k=10):
         self.k = k
     def fit(self, X, y):
         self.X = X
         self.y = y
     def predict_proba(self, x_vec):
-        # Jaccard similarity vectorial pentru coșuri binare
         X_bin = self.X.astype(bool)
         x_bin = x_vec.astype(bool).reshape(1,-1)
         intersection = np.sum(X_bin & x_bin, axis=1)
@@ -108,7 +112,7 @@ class KNNUpsellVector:
         top_idx = np.argsort(sim)[-self.k:]
         scores = defaultdict(float)
         for idx in top_idx:
-            scores[self.y[idx]] += sim[idx]
+            scores[self.y[idx]] += sim[idx]**2  # accent pe cei mai similari
         total = sum(scores.values())
         if total>0:
             for k in scores: scores[k]/=total
@@ -116,7 +120,7 @@ class KNNUpsellVector:
 
 # --- ID3 simplificat ---
 class ID3Node:
-    def __init__(self, depth=0, max_depth=5):
+    def __init__(self, depth=0, max_depth=6):
         self.depth = depth
         self.max_depth = max_depth
         self.feature = None
@@ -157,7 +161,7 @@ class ID3Node:
 
 # --- AdaBoost simplificat ---
 class AdaBoostUpsell:
-    def __init__(self,n_estimators=50):
+    def __init__(self,n_estimators=100):
         self.n_estimators=n_estimators
         self.models=[]
         self.alphas=[]
@@ -168,12 +172,12 @@ class AdaBoostUpsell:
         n_classes = len(classes)
     
         for _ in range(self.n_estimators):
-            stump = ID3Node(max_depth=1)
+            stump = ID3Node(max_depth=2)
             stump.fit(baskets, contexts, y)
         
             pred = [max(stump.predict_proba(b,c).items(), key=lambda x:x[1])[0] for b,c in zip(baskets, contexts)]
             err = np.sum(w * (np.array(pred)!=np.array(y))) / np.sum(w)
-            if err >= 1-1/n_classes:  # evita alpha negativ
+            if err >= 1-1/n_classes:
                 continue
             alpha = np.log((1-err)/max(err,1e-10)) + np.log(n_classes-1)
         
@@ -194,22 +198,27 @@ class AdaBoostUpsell:
             for k in scores: scores[k]/=total
         return scores
 
-# --- Helper Ranking ---
-def rank_from_proba_manual(proba_dict):
-    return sorted(proba_dict.keys(), key=lambda p: proba_dict[p]*(prices.get(p,1)**0.5)*(popularity.get(p,1)**0.5), reverse=True)
+# --- Helper Ranking cu ponderi ajustabile ---
+def rank_from_proba_manual(proba_dict, alpha=0.7, beta=0.2, gamma=0.1):
+    return sorted(
+        proba_dict.keys(), 
+        key=lambda p: (proba_dict[p]**alpha)*(prices.get(p,1)**beta)*(popularity.get(p,1)**gamma),
+        reverse=True
+    )
+
 def hit_at_k(ranking,target,k): return int(target in ranking[:k])
 
 # --- Antrenare ---
 nb=NaiveBayesUpsell()
 nb.fit(train_samples["basket"].tolist(), train_samples[["tip_zi","perioada"]].values.tolist(), train_samples["target"].values)
 
-knn=KNNUpsellVector(k=7)
+knn=KNNUpsellVector(k=10)
 knn.fit(X_train_knn, y_train_knn)
 
-id3=ID3Node(max_depth=5)
+id3=ID3Node(max_depth=6)
 id3.fit(train_samples["basket"].tolist(), train_samples[["tip_zi","perioada"]].values.tolist(), train_samples["target"].values)
 
-ada=AdaBoostUpsell(n_estimators=50)
+ada=AdaBoostUpsell(n_estimators=100)
 ada.fit(train_samples["basket"].tolist(), train_samples[["tip_zi","perioada"]].values.tolist(), train_samples["target"].values)
 
 # --- Evaluare Hit@K ---
@@ -224,7 +233,7 @@ for i,row in test_samples.iterrows():
     pop_rank=rank_popularity()
     rev_rank=rank_revenue()
     nb_rank=rank_from_proba_manual(nb.predict_proba(basket,ctx))
-    knn_rank=rank_from_proba_manual(knn.predict_proba(np.hstack([mlb.transform([basket]), enc.transform([[ctx[0],ctx[1]]]).toarray()]),))
+    knn_rank=rank_from_proba_manual(knn.predict_proba(np.hstack([mlb.transform([basket]), enc.transform([[ctx[0],ctx[1]]]).toarray()])))
     id3_rank=rank_from_proba_manual(id3.predict_proba(basket,ctx))
     ada_rank=rank_from_proba_manual(ada.predict_proba(basket,ctx))
     for k in Ks:
