@@ -64,7 +64,7 @@ X_test_knn = np.hstack([X_test_basket, X_test_ctx])
 y_train_knn = train_samples["target"].values
 y_test_knn = test_samples["target"].values
 
-# --- Naive Bayes manual ---
+# --- Naive Bayes manual optimizat ---
 class NaiveBayesUpsell:
     def __init__(self):
         self.prior = {}
@@ -78,11 +78,11 @@ class NaiveBayesUpsell:
         for basket, ctx, prod in zip(baskets, contexts, y):
             for f in basket + list(ctx):
                 self.likelihood[prod][f] += 1
-        # Laplace smoothing mai robust
+        # Laplace smoothing mai agresiv
         for p in self.products:
             denom = sum(self.likelihood[p].values()) + len(self.likelihood[p])
             for f in self.likelihood[p]:
-                self.likelihood[p][f] = (self.likelihood[p][f]+1)/(denom + 1e-6)
+                self.likelihood[p][f] = (self.likelihood[p][f] + 5)/(denom + 5*len(self.likelihood[p]))
     def predict_proba(self, basket, ctx):
         scores = {}
         for p in self.products:
@@ -96,9 +96,9 @@ class NaiveBayesUpsell:
             for k in scores: scores[k]/=s
         return scores
 
-# --- K-NN manual vectorial ---
+# --- K-NN optimizat ---
 class KNNUpsellVector:
-    def __init__(self, k=10):
+    def __init__(self, k=15):
         self.k = k
     def fit(self, X, y):
         self.X = X
@@ -112,15 +112,15 @@ class KNNUpsellVector:
         top_idx = np.argsort(sim)[-self.k:]
         scores = defaultdict(float)
         for idx in top_idx:
-            scores[self.y[idx]] += sim[idx]**2  # accent pe cei mai similari
+            scores[self.y[idx]] += sim[idx]**3  # exponențial pentru cei mai similari
         total = sum(scores.values())
         if total>0:
             for k in scores: scores[k]/=total
         return scores
 
-# --- ID3 simplificat ---
+# --- ID3 optimizat ---
 class ID3Node:
-    def __init__(self, depth=0, max_depth=6):
+    def __init__(self, depth=0, max_depth=8):
         self.depth = depth
         self.max_depth = max_depth
         self.feature = None
@@ -159,9 +159,9 @@ class ID3Node:
         branch='yes' if self.feature in basket else 'no'
         return self.children[branch].predict_proba(basket,ctx)
 
-# --- AdaBoost simplificat ---
+# --- AdaBoost optimizat ---
 class AdaBoostUpsell:
-    def __init__(self,n_estimators=100):
+    def __init__(self,n_estimators=150):
         self.n_estimators=n_estimators
         self.models=[]
         self.alphas=[]
@@ -172,7 +172,7 @@ class AdaBoostUpsell:
         n_classes = len(classes)
     
         for _ in range(self.n_estimators):
-            stump = ID3Node(max_depth=2)
+            stump = ID3Node(max_depth=3)
             stump.fit(baskets, contexts, y)
         
             pred = [max(stump.predict_proba(b,c).items(), key=lambda x:x[1])[0] for b,c in zip(baskets, contexts)]
@@ -198,10 +198,10 @@ class AdaBoostUpsell:
             for k in scores: scores[k]/=total
         return scores
 
-# --- Helper Ranking cu ponderi ajustabile ---
-def rank_from_proba_manual(proba_dict, alpha=0.7, beta=0.2, gamma=0.1):
+# --- Helper Ranking cu ponderi mai agresive pentru probabilitate ---
+def rank_from_proba_manual(proba_dict, alpha=0.85, beta=0.1, gamma=0.05):
     return sorted(
-        proba_dict.keys(), 
+        proba_dict.keys(),
         key=lambda p: (proba_dict[p]**alpha)*(prices.get(p,1)**beta)*(popularity.get(p,1)**gamma),
         reverse=True
     )
@@ -212,13 +212,13 @@ def hit_at_k(ranking,target,k): return int(target in ranking[:k])
 nb=NaiveBayesUpsell()
 nb.fit(train_samples["basket"].tolist(), train_samples[["tip_zi","perioada"]].values.tolist(), train_samples["target"].values)
 
-knn=KNNUpsellVector(k=10)
+knn=KNNUpsellVector(k=15)
 knn.fit(X_train_knn, y_train_knn)
 
-id3=ID3Node(max_depth=6)
+id3=ID3Node(max_depth=8)
 id3.fit(train_samples["basket"].tolist(), train_samples[["tip_zi","perioada"]].values.tolist(), train_samples["target"].values)
 
-ada=AdaBoostUpsell(n_estimators=100)
+ada=AdaBoostUpsell(n_estimators=150)
 ada.fit(train_samples["basket"].tolist(), train_samples[["tip_zi","perioada"]].values.tolist(), train_samples["target"].values)
 
 # --- Evaluare Hit@K ---
