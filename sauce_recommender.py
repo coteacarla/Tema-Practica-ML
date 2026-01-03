@@ -27,6 +27,7 @@ def backward_pass(X, y, predictions, weights, regularization):
 
 
 def train_logistic_regression(X, y, learning_rate=0.5, n_iterations=15000, regularization=0.1, early_stopping_patience=5):
+    #Xavier
     np.random.seed(42)
     n_features = X.shape[1]
     limit = np.sqrt(1.0 / n_features)
