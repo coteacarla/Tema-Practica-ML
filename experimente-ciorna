@@ -163,3 +163,25 @@ Difference (Custom - sklearn):
   Recall:    +0.0053
   F1-Score:  +0.0026
   ROC-AUC:   +0.0002
+
+  merge mai prost cu decay
+   Custom Implementation:
+  Accuracy:  0.9832 (+0.4516 vs baseline)
+  Precision: 0.9894
+  Recall:    0.9789
+  F1-Score:  0.9841
+  ROC-AUC:   0.9939
+
+sklearn:
+  Accuracy:  0.9916 (+0.4600 vs baseline)
+  Precision: 0.9895
+  Recall:    0.9947
+  F1-Score:  0.9921
+  ROC-AUC:   0.9995
+
+Difference (Custom - sklearn):
+  Accuracy:  -0.0084
+  Precision: -0.0002
+  Recall:    -0.0158
+  F1-Score:  -0.0080
+  ROC-AUC:   -0.0055

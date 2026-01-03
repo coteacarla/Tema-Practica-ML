@@ -199,7 +199,7 @@ def evaluate_models(df_modified, base_feature_cols, models):
         pop_recs = get_popularity_recommendations(df_modified, k=5)
         pop_rec_sauces = [sauce for sauce, pop in pop_recs][:5]
         
-        # Calculate Hit@K and Precision@K
+      
         for k in K_VALUES:
             hit_model = len(set(model_rec_sauces[:k]) & actual_sauces) > 0
             precision_model = len(set(model_rec_sauces[:k]) & actual_sauces) / k
