@@ -5,9 +5,6 @@ from collections import defaultdict, Counter
 from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder
 from sklearn.model_selection import train_test_split
 
-# =====================================================
-# 1. ÎNCĂRCARE DATE + CONTEXT
-# =====================================================
 
 df = pd.read_csv("dataset-original.csv")
 df["data_bon"] = pd.to_datetime(df["data_bon"])
@@ -24,9 +21,6 @@ def perioada(h):
 
 df["perioada"] = df["data_bon"].dt.hour.apply(perioada)
 
-# =====================================================
-# 2. SELECTARE PRODUSE UPSELL
-# =====================================================
 
 UPS_KEYWORDS = [
     "cola","fanta","sprite","aqua","apa","juice",
@@ -40,9 +34,6 @@ df = df[
     .str.contains("|".join(UPS_KEYWORDS), regex=True)
 ]
 
-# =====================================================
-# 3. CONSTRUIRE BONURI + SPLIT
-# =====================================================
 
 bons = []
 for bon_id, g in df.groupby("id_bon"):
@@ -58,9 +49,6 @@ for bon_id, g in df.groupby("id_bon"):
 bons = pd.DataFrame(bons)
 train_bons, test_bons = train_test_split(bons, test_size=0.2, random_state=42)
 
-# =====================================================
-# 4. GENERARE SAMPLES
-# =====================================================
 
 def generate_samples(bons_df):
     samples = []
@@ -78,9 +66,6 @@ def generate_samples(bons_df):
 train_samples = generate_samples(train_bons)
 test_samples  = generate_samples(test_bons)
 
-# =====================================================
-# 5. FEATURE ENCODING (DOAR TRAIN)
-# =====================================================
 
 mlb = MultiLabelBinarizer()
 X_train_basket = mlb.fit_transform(train_samples["basket"])
@@ -96,9 +81,6 @@ X_test_knn  = np.hstack([X_test_basket, X_test_ctx])
 y_train = train_samples["target"].values
 y_test  = test_samples["target"].values
 
-# =====================================================
-# 6. POPULARITATE / REVENUE (DOAR TRAIN)
-# =====================================================
 
 train_df = df[df["id_bon"].isin(train_bons["id_bon"])]
 
@@ -106,10 +88,6 @@ prices = train_df.groupby("retail_product_name")["SalePriceWithVAT"].mean().to_d
 popularity = train_df["retail_product_name"].value_counts().to_dict()
 products = list(popularity.keys())
 rev_total = train_df.groupby("retail_product_name")["SalePriceWithVAT"].sum().to_dict()
-
-# =====================================================
-# 6.1 CANDIDATE GENERATION (CO-OCCURRENCE – DOAR TRAIN)
-# =====================================================
 
 cooc = defaultdict(Counter)
 for b in train_samples["basket"]:
@@ -123,10 +101,6 @@ def generate_candidates(basket, top_n=25):
     for p in basket:
         cands.update(cooc[p])
     return [p for p,_ in cands.most_common(top_n)]
-
-# =====================================================
-# 7. MODELE (IDENTICE)
-# =====================================================
 
 class NaiveBayesUpsell:
     def __init__(self):
@@ -277,9 +251,6 @@ class AdaBoostUpsell:
         s = sum(scores.values())
         return {k:v/s for k,v in scores.items()} if s>0 else scores
 
-# =====================================================
-# 8. RANKING (CU CANDIDATES)
-# =====================================================
 
 def rank_from_proba(proba, basket):
     candidates = generate_candidates(basket)
@@ -296,9 +267,6 @@ def rank_from_proba(proba, basket):
 def hit_at_k(rank, target, k):
     return int(target in rank[:k])
 
-# =====================================================
-# 9. ANTRENARE
-# =====================================================
 
 nb = NaiveBayesUpsell()
 nb.fit(train_samples["basket"].tolist(),
@@ -314,9 +282,6 @@ id3.fit(train_samples["basket"].tolist(), y_train)
 ada = AdaBoostUpsell()
 ada.fit(train_samples["basket"].tolist(), y_train)
 
-# =====================================================
-# 10. EVALUARE
-# =====================================================
 
 Ks = [1,3,5]
 results = {m:{k:0 for k in Ks} for m in
