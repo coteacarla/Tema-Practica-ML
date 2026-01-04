@@ -25,7 +25,7 @@ def perioada(h):
 df["perioada"] = df["data_bon"].dt.hour.apply(perioada)
 
 # =====================================================
-# 2. SELECTARE PRODUSE UPSELL (heuristic)
+# 2. SELECTARE PRODUSE UPSELL
 # =====================================================
 
 UPS_KEYWORDS = [
@@ -41,7 +41,7 @@ df = df[
 ]
 
 # =====================================================
-# 3. CONSTRUIRE BONURI + SPLIT (ANTI-LEAKAGE)
+# 3. CONSTRUIRE BONURI + SPLIT
 # =====================================================
 
 bons = []
@@ -56,13 +56,10 @@ for bon_id, g in df.groupby("id_bon"):
     })
 
 bons = pd.DataFrame(bons)
-
-train_bons, test_bons = train_test_split(
-    bons, test_size=0.2, random_state=42
-)
+train_bons, test_bons = train_test_split(bons, test_size=0.2, random_state=42)
 
 # =====================================================
-# 4. GENERARE SAMPLES (UN PRODUS SCOS)
+# 4. GENERARE SAMPLES
 # =====================================================
 
 def generate_samples(bons_df):
@@ -89,10 +86,9 @@ mlb = MultiLabelBinarizer()
 X_train_basket = mlb.fit_transform(train_samples["basket"])
 X_test_basket  = mlb.transform(test_samples["basket"])
 
-
 enc = OneHotEncoder()
 X_train_ctx = enc.fit_transform(train_samples[["tip_zi","perioada"]]).toarray()
-X_test_ctx = enc.transform(test_samples[["tip_zi","perioada"]]).toarray()
+X_test_ctx  = enc.transform(test_samples[["tip_zi","perioada"]]).toarray()
 
 X_train_knn = np.hstack([X_train_basket, X_train_ctx])
 X_test_knn  = np.hstack([X_test_basket, X_test_ctx])
@@ -109,11 +105,27 @@ train_df = df[df["id_bon"].isin(train_bons["id_bon"])]
 prices = train_df.groupby("retail_product_name")["SalePriceWithVAT"].mean().to_dict()
 popularity = train_df["retail_product_name"].value_counts().to_dict()
 products = list(popularity.keys())
-
 rev_total = train_df.groupby("retail_product_name")["SalePriceWithVAT"].sum().to_dict()
 
 # =====================================================
-# 7. MODELE
+# 6.1 CANDIDATE GENERATION (CO-OCCURRENCE – DOAR TRAIN)
+# =====================================================
+
+cooc = defaultdict(Counter)
+for b in train_samples["basket"]:
+    for p in b:
+        for q in b:
+            if p != q:
+                cooc[p][q] += 1
+
+def generate_candidates(basket, top_n=25):
+    cands = Counter()
+    for p in basket:
+        cands.update(cooc[p])
+    return [p for p,_ in cands.most_common(top_n)]
+
+# =====================================================
+# 7. MODELE (IDENTICE)
 # =====================================================
 
 class NaiveBayesUpsell:
@@ -212,7 +224,7 @@ class ID3Node:
 
         self.feature = best_feature
         self.children["yes"] = ID3Node(self.depth+1, self.max_depth)
-        self.children["no"] = ID3Node(self.depth+1, self.max_depth)
+        self.children["no"]  = ID3Node(self.depth+1, self.max_depth)
 
         left_idx = [i for i,b in enumerate(baskets) if best_feature in b]
         right_idx = [i for i,b in enumerate(baskets) if best_feature not in b]
@@ -228,36 +240,29 @@ class ID3Node:
     def predict_proba(self, basket):
         if self.feature is None:
             return self.probs
-        branch = "yes" if self.feature in basket else "no"
-        return self.children[branch].predict_proba(basket)
+        return self.children["yes" if self.feature in basket else "no"].predict_proba(basket)
 
 class AdaBoostUpsell:
     def __init__(self, n_estimators=100):
+        self.n_estimators = n_estimators
         self.models = []
         self.alphas = []
-        self.n_estimators = n_estimators
 
     def fit(self, baskets, y):
         n = len(y)
-        w = np.ones(n) / n
-        classes = list(set(y))
-        K = len(classes)
+        w = np.ones(n)/n
+        K = len(set(y))
 
         for _ in range(self.n_estimators):
             stump = ID3Node(max_depth=3)
             stump.fit(baskets, y)
 
-            preds = [
-                max(stump.predict_proba(b).items(), key=lambda x:x[1])[0]
-                for b in baskets
-            ]
-
+            preds = [max(stump.predict_proba(b).items(), key=lambda x:x[1])[0] for b in baskets]
             err = np.sum(w * (np.array(preds) != y))
             if err >= 1 - 1/K:
                 continue
 
             alpha = math.log((1-err)/max(err,1e-6)) + math.log(K-1)
-
             self.models.append(stump)
             self.alphas.append(alpha)
 
@@ -273,15 +278,18 @@ class AdaBoostUpsell:
         return {k:v/s for k,v in scores.items()} if s>0 else scores
 
 # =====================================================
-# 8. RANKING + EVALUARE
+# 8. RANKING (CU CANDIDATES)
 # =====================================================
 
-def rank_from_proba(proba, alpha=0.85, beta=0.1, gamma=0.05):
+def rank_from_proba(proba, basket):
+    candidates = generate_candidates(basket)
+    if not candidates:
+        candidates = products
     return sorted(
-        products,
-        key=lambda p: (proba.get(p,0)**alpha) *
-                      (prices.get(p,1)**beta) *
-                      (popularity.get(p,1)**gamma),
+        candidates,
+        key=lambda p: (proba.get(p,0)**0.85) *
+                      (prices.get(p,1)**0.1) *
+                      (popularity.get(p,1)**0.05),
         reverse=True
     )
 
@@ -322,17 +330,15 @@ for _,row in test_samples.iterrows():
     pop_rank = sorted(products, key=lambda p: popularity.get(p,0), reverse=True)
     rev_rank = sorted(products, key=lambda p: rev_total.get(p,0), reverse=True)
 
-    nb_rank  = rank_from_proba(nb.predict_proba(basket,ctx))
+    nb_rank  = rank_from_proba(nb.predict_proba(basket,ctx), basket)
 
-    ctx_vec = enc.transform(
-    pd.DataFrame([[ctx[0], ctx[1]]], columns=["tip_zi","perioada"])).toarray()
+    ctx_vec = enc.transform(pd.DataFrame([[ctx[0],ctx[1]]], columns=["tip_zi","perioada"])).toarray()
     basket_vec = mlb.transform([basket])
     x_knn = np.hstack([basket_vec, ctx_vec])
-    knn_rank = rank_from_proba(knn.predict_proba(x_knn[0]))
+    knn_rank = rank_from_proba(knn.predict_proba(x_knn[0]), basket)
 
-    
-    id3_rank = rank_from_proba(id3.predict_proba(basket))
-    ada_rank = rank_from_proba(ada.predict_proba(basket))
+    id3_rank = rank_from_proba(id3.predict_proba(basket), basket)
+    ada_rank = rank_from_proba(ada.predict_proba(basket), basket)
 
     for k in Ks:
         results["Popularity"][k] += hit_at_k(pop_rank,target,k)
