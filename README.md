@@ -1,4 +1,3 @@
-# Sauce Recommender - Machine Learning Project
 
 ## Instalare
 
@@ -12,9 +11,9 @@ pip install -r requirements.txt
 
 ## Fișiere Script-uri
 
-- **sauce_recommender.py** - 2.2
 - **logistic_regression.py** - 2.1
-- **evaluation.py** - Funcții pentru evaluare model (accuracy, precision, recall, F1, ROC-AUC) 2.1
+- **evaluation.py** - Funcții pentru evaluare model (accuracy, precision, recall, F1, ROC-AUC) - 2.1
+- **sauce_recommender.py** - 2.2
 
 ## Folosite intermediar pentru procesare csv
 - **create_modified_dataset.py** - Procesează dataset-ul original și adaugă coloane
