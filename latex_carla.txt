@@ -1,0 +1,426 @@
+\documentclass[12pt,a4paper]{article}
+
+% --- Language and Encoding ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english,romanian]{babel}
+
+% --- Layout and Graphics ---
+\usepackage{geometry}
+\geometry{left=2cm, right=2cm, top=2cm, bottom=2cm}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+
+% --- Tables and Math ---
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% --- Code Listings ---
+\usepackage{listings}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue
+}
+
+% --- Listings Configuration ---
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+    breaklines=true,
+    tabsize=4,
+    frame=single,
+    backgroundcolor=\color{gray!10},
+    inputencoding=utf8,
+    extendedchars=true,
+    literate={ă}{{\u{a}}}1 {â}{{\^{a}}}1 {î}{{\^{i}}}1 {ș}{{\c{s}}}1 {ț}{{\c{t}}}1
+}
+
+% --- Header and Footer ---
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Raport Temă Practică}
+
+% --- Title Data ---
+\title{\textbf{Raport Temă Practică ML}}
+\author{Aldea Alexandra-Maria, Cotea Carla-Gabriela}
+\date{Ianuarie 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Preprocesare (Task 2.1)}
+
+\subsection{Clasificarea Produselor}
+
+\subsubsection*{Scop}
+
+Primul pas a fost împărțirea produselor pe categorii generalizate din produsele particulare din datasetul original (de exemplu, \textit{``Pepsi''}, \textit{``Crazy Schnitzel''}, \textit{``French fries''}). De asemenea, s-au adăugat coloanele de \texttt{tip\_zi} (weekday/weekend) și \texttt{perioada\_zi} (morning/lunch/evening).
+
+\subsubsection*{Implementare}
+
+Scriptul \texttt{add\_category\_column.py} definește o funcție care primește numele produsului și, pe baza unor liste predefinite, atribuie o categorie.
+
+\begin{lstlisting}
+def categorize_product(product_name):
+    if 'Pepsi' in product_name or 'Aqua' in product_name:
+        return 'drink'
+    elif product_name in ['Crazy Sauce', 'Cheddar Sauce', ...]:
+        return 'sauce'
+    elif 'Schnitzel' in product_name:
+        return 'schnitzel'
+    # ... etc
+\end{lstlisting}
+
+\subsubsection*{Categorii Definite}
+
+Am împărțit toate produsele în 9 categorii semantice:
+
+\begin{itemize}
+    \item \textbf{drink}: Băuturi (Pepsi, Aqua, Lipton, etc.)
+    \item \textbf{sauce}: Sosuri comandate standalone (Crazy Sauce, Cheddar Sauce, etc.)
+    \item \textbf{schnitzel}: Schnitzele
+    \item \textbf{side\_dish}: Garnituri (cartofi)
+    \item \textbf{main\_dish}: Fel principal (Mac \& Cheese, Chicken Bao Buns)
+    \item \textbf{extra}: Ingrediente extra
+    \item \textbf{salad}: Salate
+    \item \textbf{dessert}: Deserturi
+    \item \textbf{packaging}: Ambalaj
+\end{itemize}
+
+\subsubsection*{Exemplu după categorizare}
+
+\begin{table}[h]
+    \centering
+    \caption{Exemplu date după categorizare}
+    \vspace{0.2cm}
+    \begin{tabular}{lllll}
+        \toprule
+        \textbf{id\_bon} & \textbf{Product Name} & \textbf{Category} & \textbf{tip\_zi} & \textbf{perioada\_zi} \\
+        \midrule
+        1 & Crazy Schnitzel & schnitzel & weekday & lunch \\
+        1 & Crazy Sauce & sauce & weekday & lunch \\
+        1 & Pepsi & drink & weekday & lunch \\
+        2 & Crazy Schnitzel & schnitzel & weekend & evening \\
+        2 & French fries & side\_dish & weekend & evening \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Agregare la Nivel de Bon}
+
+\subsubsection*{Problema}
+
+După pasul anterior, datele sunt la nivel de produs individual. Pentru a antrena un model de clasificare la nivel de bon, trebuie agregate informațiile tuturor produselor pe fiecare bon.
+
+\subsubsection*{Transformarea Datelor}
+
+Scriptul \texttt{create\_modified\_dataset.py} transformă datele prin:
+
+\begin{enumerate}
+    \item Grupare după \texttt{id\_bon}.
+    \item Pentru fiecare bon, numărare a produselor per categorie.
+    \item Pentru fiecare bon, numărare a fiecărui produs specific.
+    \item Creare de coloane noi: \texttt{count\_category\_*} și \texttt{count\_product\_*}.
+\end{enumerate}
+
+\subsubsection*{Exemplu Transformare}
+
+\textbf{ÎNAINTE} (nivel de produs):
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{id\_bon} & \textbf{retail\_product\_name} & \textbf{product\_category} \\
+\midrule
+1 & Crazy Schnitzel & schnitzel \\
+1 & Crazy Sauce & sauce \\
+1 & Pepsi & drink \\
+2 & Crazy Schnitzel & schnitzel \\
+2 & French fries & side\_dish \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.5cm}
+
+\textbf{DUPĂ} (nivel de bon):
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ccccc}
+\toprule
+\textbf{id\_bon} & \textbf{count\_cat\_schnitzel} & \textbf{count\_cat\_sauce} & \textbf{count\_prod\_sauce} & $\ldots$ \\
+\midrule
+1 & 1 & 1 & 1 & \\
+2 & 1 & 0 & 0 & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Filtrare și Extragere Features Finale}
+
+\subsubsection*{Context}
+
+Scriptul \texttt{filter\_crazy\_schnitzel+features.py} realizează următoarele:
+
+\begin{enumerate}
+    \item Filtrează doar bonuri care conțin \textit{Crazy Schnitzel}.
+    \item Creează eticheta target.
+    \item Computează caracteristici de coș.
+\end{enumerate}
+
+\subsubsection*{1. Filtrare Inițială}
+
+\begin{lstlisting}
+bonuri_cu_crazy_schnitzel = df[df['retail_product_name'] == 'Crazy Schnitzel']['id_bon'].unique()
+df = df[df['id_bon'].isin(bonuri_cu_crazy_schnitzel)]
+\end{lstlisting}
+
+\subsubsection*{2. Eticheta Target (\texttt{y})}
+
+\begin{lstlisting}
+bonuri_cu_crazy_sauce = df[df['retail_product_name'] == 'Crazy Sauce']['id_bon'].unique()
+df['y'] = df['id_bon'].apply(lambda x: 1 if x in bonuri_cu_crazy_sauce else 0)
+\end{lstlisting}
+
+Variabila target este binară:
+
+\begin{itemize}
+    \item $y = 1$: Bonul conține \textit{Crazy Sauce}.
+    \item $y = 0$: Bonul NU conține \textit{Crazy Sauce}.
+\end{itemize}
+
+\subsubsection*{3. Caracteristici de Coș}
+
+Pentru fiecare bon, calculez caracteristici agregate:
+
+\begin{table}[h]
+\centering
+\caption{Caracteristici de coș}
+\vspace{0.2cm}
+\begin{tabular}{ll}
+\toprule
+\textbf{Feature} & \textbf{Descriere} \\
+\midrule
+\texttt{cart\_size} & Numărul total de produse pe bon \\
+\texttt{distinct\_products} & Numărul de produse DIFERITE comandate \\
+\texttt{total\_value} & Valoarea totală a comenzii (în bani) \\
+\texttt{avg\_price} & Preț mediu per produs \\
+\texttt{count\_category\_*} & Numărul de produse din fiecare categorie \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section*{Rezumat Complet al Fluxului}
+
+\[
+\begin{array}{c}
+\text{\texttt{dataset-original.csv}} \\
+\text{(15000+ linii, nivel de produs)} \\
+\downarrow \\
+\boxed{\text{add\_category\_column.py}} \\
+\text{Adaugă categorie, features temporale} \\
+\downarrow \\
+\text{\texttt{dataset-modified.csv}} \\
+\text{(15000+ linii + categorie)} \\
+\downarrow \\
+\boxed{\text{create\_modified\_dataset.py}} \\
+\text{Agregare pe bon, numărare per categorie și produs} \\
+\downarrow \\
+\text{\texttt{dataset-modified-features.csv}} \\
+\text{(~4000 linii - bonuri, ~50 coloane - count\_*)} \\
+\downarrow \\
+\boxed{\text{filter\_crazy\_schnitzel+features.py}} \\
+\text{Filtrare, creare y, features coș} \\
+\downarrow \\
+\text{\texttt{dataset-bon-features.csv}} \\
+\textbf{FINAL: Gata pentru antrenare}
+\end{array}
+\]
+
+\section{Preprocesare (Task 2.2)}
+
+Același flux de preprocesare a fost aplicat și pentru problema 2.2. Diferența majoră a constat în absența etapei de filtrare, utilizându-se toate bonurile disponibile, nu doar cele care conțineau produsul \textit{Crazy Schnitzel}. Variabila țintă ($y$) a fost, pe rând, fiecare dintre cele 8 sosuri posibile, la antrenare acesta fiind exclus din trăsăturile furnizate pentru a evita ``scurgerile de date'' (\textit{data leakage}).
+
+\section{Regresie Logistică (Task 2.1)}
+
+Această secțiune detaliază procesul iterativ prin care am optimizat implementarea proprie a Regresiei Logistice, deciziile luate privind preprocesarea datelor și selecția hiperparametrilor, precum și comparația finală cu implementarea de referință din \texttt{scikit-learn}.
+
+\subsection{Implementare finală}
+
+Pentru rezolvarea problemei de clasificare binară (predicția sosului \textit{Crazy Sauce}), a fost implementată Regresia Logistică.
+Minimizarea erorii s-a realizat folosind funcția de cost Binary Cross-Entropy, aceasta fiind standardul pentru problemele de clasificare probabilistică. 
+
+În varianta finală, am implementat mecanismul de regularizare L2 pentru a penaliza ponderile excesive și a evita overfitting-ul. A fost inclus și un mecanism de early stopping setat să se declanșeze după 5 epoci consecutive în care funcția de loss crește, deși acesta nu a fost declanșat pe parcursul experimentelor finale, modelul convergând stabil.
+
+Un aspect crucial pentru eficiența algoritmului de optimizare a fost preprocesarea datelor prin standardizare. Am transformat variabilele de intrare astfel încât să aibă media 0 și deviația standard 1. Această uniformizare a suprafeței de eroare a permis utilizarea unei rate de învățare agresive ($learning\_rate = 0.5$) fără riscul divergenței. 
+
+Nu în ultimul rând, stabilitatea numerică la începutul antrenării a fost asigurată prin inițializarea ponderilor folosind metoda Xavier, prevenind astfel saturația prematură a funcției de activare Sigmoid.
+
+\subsection{Evoluția experimentului}
+
+Performanța modelului a fost obținută printr-un proces iterativ de optimizare, rezultatele fiind monitorizate constant comparativ cu baseline-ul \texttt{sklearn}.
+
+În prima fază a experimentelor, am rulat modelul pe datele brute cu regularizare L2 și un $lr=0.1$. Această abordare a rezultat într-o acuratețe modestă de aproximativ $65.83\%$, sub-performând masiv față de implementarea de referință ($76.47\%$). Diferența de peste $10\%$ a indicat clar că simpla relație liniară între produsele brute și variabila țintă este insuficientă sau că datele necesită o scalare corespunzătoare.
+
+Un salt major a fost realizat prin adăugarea de trăsături de tip contor (\textit{counter features}). Maparea produselor specifice și generarea unor contoare per categorie au permis modelului să generalizeze comportamentul clienților. Această modificare a propulsat acuratețea la aproximativ $87\%$, ajungând ulterior la $96.64\%$ după normalizarea datelor.
+
+Ulterior, am setat o rată de învățare agresivă ($learning\_rate = 0.5$) combinată cu mecanismul de \textit{Early Stopping}. Diferența critică a fost făcută de numărul de iterații. Rularea pentru 10.000 de iterații a adus modelul la paritate cu \texttt{sklearn} ($99.16\%$), iar extinderea la 15.000 de iterații a permis depășirea baseline-ului pe metricile punctuale, atingând un Recall perfect de 1.0000 și o acuratețe de 99.44\%.
+
+Testând limitele absolute ale implementării prin rularea a 50.000 de iterații, am reușit să minimizez funcția de cost până la valoarea de $0.0160$.
+
+Este important de menționat și un experiment care nu a dat rezultatele așteptate: implementarea unui \textit{Learning Rate Decay}. Scăderea treptată a ratei de învățare a degradat performanța la nivelul etapelor intermediare (Acc $\approx 98.32\%$), deoarece rata scădea prea rapid, împiedicând modelul să parcurgă pașii necesari pentru a ajunge în zona de minim global atinsă anterior cu rata constantă.
+
+\subsection{Evaluarea Modelului și Interpretarea Rezultatelor}
+
+\begin{table}[h]
+    \centering
+    \caption{Performanța Finală: Implementare Proprie vs. Scikit-Learn}
+    \vspace{0.2cm}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Metrică} & \textbf{Custom Implementation} & \textbf{sklearn Baseline} & \textbf{Diferență} \\
+        \midrule
+        Accuracy & 0.9944 & 0.9916 & +0.0028\% \\
+        Precision & 0.9896 & 0.9895 & +0.0001\% \\
+        Recall & 1.0000 & 0.9947 & +0.0053\% \\
+        F1-Score & 0.9948 & 0.9921 & +0.0026\% \\
+        ROC-AUC & 0.9967 & 0.9995 & -0.0028\% \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+ \newpage
+
+
+\subsection{Matricea de Confuzie}
+
+Pentru a vizualiza performanța modelului pe setul de testare, am generat matricea de confuzie (Figura \ref{fig:conf_matrix}). Aceasta ilustrează capacitatea modelului de a distinge corect între bonurile care conțin \textit{Crazy Sauce} și cele care nu.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{confusion_matrix.jpg} 
+    \caption{Matricea de Confuzie pentru clasificarea binară a sosului Crazy Sauce.}
+    \label{fig:conf_matrix}
+\end{figure}
+
+Rezultatele indică o precizie extrem de ridicată:
+\begin{itemize}
+    \item \textbf{True Negatives (TN):} 165 (Bonuri fără sos clasificate corect)
+    \item \textbf{True Positives (TP):} 190 (Bonuri cu sos clasificate corect)
+    \item \textbf{False Positives (FP):} 2 (Bonuri fără sos clasificate greșit ca având sos)
+    \item \textbf{False Negatives (FN):} 0 (Niciun bon cu sos nu a fost ratat)
+\end{itemize}
+
+\subsection{Analiza Curbei ROC}
+
+Graficul demonstrează o capacitate de discriminare aproape ideală pentru ambele modele, curbele tinzând rapid către colțul stânga-sus (Rata de Pozitive Adevărate = 1, Rata de Pozitive False = 0).praguri de discriminare (Figura \ref{fig:roc_curve}).
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{roc_curve.jpg}
+    \caption{Comparație curbe ROC: Implementare Proprie vs. Scikit-Learn.}
+    \label{fig:roc_curve}
+\end{figure}
+
+\newpage
+
+\subsection{Interpretarea Coeficienților Regresiei Logistice}
+
+Un avantaj major al Regresiei Logistice este interpretabilitatea. Analizând ponderile ($w$) asociate fiecărei trăsături, putem înțelege ce factori influențează decizia clientului de a cumpăra \textit{Crazy Sauce}.
+
+\subsubsection*{Factori care CRESC probabilitatea de cumpărare (Coeficienți Pozitivi)}
+\begin{itemize}
+    \item \textbf{Mărimea Coșului (\texttt{cart\_size}, $+12.04$):} Acesta este de departe cel mai puternic predictor. Cu cât un client comandă mai multe produse, cu atât este mai probabil să comande și un sos.
+    \item \textbf{Valoarea Totală (\texttt{total\_value}, $+3.97$):} Corelat cu mărimea coșului, clienții care cheltuie mai mult sunt mai dispuși să adauge produse complementare.
+    \item \textbf{Diversitatea (\texttt{distinct\_products}, $+1.98$):} O varietate mai mare de produse în coș indică o masă complexă, care necesită adesea sosuri.
+\end{itemize}
+
+\subsubsection*{Factori care SCAD probabilitatea de cumpărare (Coeficienți Negativi)}
+\begin{itemize}
+    \item \textbf{Alte Sosuri (\texttt{has\_cheddar\_sauce}, $-4.91$; \texttt{has\_garlic\_sauce}, $-4.19$):} Dacă un client a comandat deja un alt tip de sos, probabilitatea de a comanda și \textit{Crazy Sauce} scade drastic. Aceasta confirmă intuiția că produsele din aceeași categorie sunt substituibile.
+    \item \textbf{Prețul Mediu (\texttt{avg\_price}, $-3.10$):} Un preț mediu ridicat ar putea indica comanda unor produse scumpe care nu necesită sos (de exemplu, salate complexe sau meniuri care includ deja sosuri).
+    \item \textbf{Băuturile (\texttt{count\_drink}, $-1.92$):} Clienții care comandă preponderent băuturi (probabil doar o gustare sau o pauză de cafea) sunt mai puțin interesați de sosuri.
+\end{itemize}
+
+\section{Sistem de Recomandare Sosuri (Task 2.2)}
+
+Extinzând arhitectura validată la punctul anterior, am dezvoltat un sistem de recomandare capabil să sugereze sosul ideal în funcție de componența coșului de cumpărături.
+
+\subsection{Abordare și Implementare}
+
+Deoarece problema implică recomandarea unuia dintre cele 8 sosuri posibile, am adoptat strategia One-vs-All. Arhitectura de regresie logistică utilizată este identică cu cea de la 2.1, însă aplicată pe setul extins de date.
+
+\subsubsection*{Diferențe față de Task 2.1}
+
+Spre deosebire de abordarea anterioară, implementarea pentru sistemul de recomandare a necesitat câteva ajustări, majoritatea la nivel de preprocesare. A fost folosit datasetul extins (nu doar bonurile ce conțin Crazy Schnitzel).
+
+Arhitectura a fost adaptată prin antrenarea a 8 modele distincte, câte unul pentru fiecare tip de sos (\textit{Crazy Sauce, Cheddar, Garlic, etc.}), trecând astfel la o strategie de tip One-vs-All. Înainte de antrenarea fiecărui sos a fost eliminată coloana caracteristică sosului curent pentru a nu avea scurgeri de date.
+
+\subsection{Rezultate Experimentale}
+
+\subsubsection*{Performanța la Nivel de Clasificator Individual}
+
+Fiecare dintre cele 8 modele a convers dupa 15000 de iterații (max(Loss) $\approx 0.0019$).
+
+\begin{table}[h]
+    \centering
+    \caption{Acuratețea modelelor individuale per tip de sos}
+    \vspace{0.2cm}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Tip Sos} & \textbf{Final Loss} & \textbf{Accuracy} \\
+        \midrule
+        Crazy Sauce & 0.0019 & 0.9994 \\
+        Cheddar Sauce & 0.0020 & \1.0000 \\
+        Extra Cheddar Sauce & 0.0005 & \textbf{1.0000} \\
+        Garlic Sauce & 0.0019 & 0.9987 \\
+        Tomato Sauce & 0.0019 & 0.9994 \\
+        Blueberry Sauce & 0.0019 & \1.0000 \\
+        Spicy Sauce & 0.0019 & 1.0000 \\
+        Pink Sauce & 0.0018 & 0.9987 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsubsection*{Performanța Sistemului de Recomandare}
+
+Pentru evaluare, am comparat sistemul nostru cu un \textbf{Baseline de Popularitate}. Metrica principală, \textbf{Hit@K}, măsoară dacă sosul real cumpărat de client se află în primele $K$ sugestii ale modelului.
+
+\begin{table}[h]
+    \centering
+    \caption{Comparație Model Recomandare vs. Baseline Popularitate}
+    \vspace{0.2cm}
+    \begin{tabular}{lcccc}
+        \toprule
+        \textbf{Metrică} & \textbf{K} & \textbf{Model Propriu} & \textbf{Baseline (Popularitate)} & \textbf{Improvement} \\
+        \midrule
+        Hit@1 & 1 & 1.0000 & 0.7975 & +20.25\%\\
+        Hit@3 & 3 & 1.0000 & 0.7975 & +20.25\% \\
+        Hit@5 & 5 & 1.0000 & 1.0000 & +0.00\% \\
+        \midrule
+        Precision@1 & 1 & 1.0000 & 0.7975 & +20.25\% \\
+        Precision@3 & 3 & 0.3333 & 0.2658 & +6.75\% \\
+        Precision@5 & 5 & 0.2000 & 0.2000 & +0.00\% \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Interpretarea Rezultatelor}
+
+Rezultatele obținute sunt categorice:
+\begin{itemize}
+    \item \textbf{Hit@1 (1.0000):} Modelul a reușit să prezică corect sosul ales de client \textit{de fiecare dată} pe prima poziție. Aceasta indică faptul că, în datele analizate, alegerea sosului este puternic deterministă în funcție de produsele din coș (ex: \textit{Blueberry Sauce} este probabil asociat exclusiv cu un desert specific sau un produs de tip "Papanasi").
+    \item \textbf{Superioritate față de Baseline:} Deși popularitatea generală oferă o ghicire bună (79.75\%), modelul acoperă "golul" de 20\%, personalizând perfect recomandarea pentru cazurile mai rare sau specifice.
+\end{itemize}
+
+\end{document}

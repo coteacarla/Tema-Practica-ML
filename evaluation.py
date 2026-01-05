@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, 
-    roc_auc_score, confusion_matrix
+    roc_auc_score, confusion_matrix, roc_curve, auc
 )
 
 
@@ -67,6 +67,32 @@ def evaluate_and_report(y_train, y_test, y_pred_custom, y_proba_custom,
     plt.tight_layout()
     plt.savefig('confusion_matrix.jpg', dpi=300, bbox_inches='tight')
     plt.close()
+
+    fpr_custom, tpr_custom, _ = roc_curve(y_test, y_proba_custom)
+    fpr_sklearn, tpr_sklearn, _ = roc_curve(y_test, y_proba_sklearn)
+    
+    roc_auc_custom_curve = auc(fpr_custom, tpr_custom)
+    roc_auc_sklearn_curve = auc(fpr_sklearn, tpr_sklearn)
+    
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr_custom, tpr_custom, color='#1f77b4', lw=2.5, 
+             label=f'Custom Implementation (AUC = {roc_auc_custom_curve:.4f})')
+    plt.plot(fpr_sklearn, tpr_sklearn, color='#ff7f0e', lw=2.5, linestyle='--',
+             label=f'sklearn LogisticRegression (AUC = {roc_auc_sklearn_curve:.4f})')
+    plt.plot([0, 1], [0, 1], color='gray', lw=1.5, linestyle='--', label='Random Classifier')
+    
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate', fontsize=12)
+    plt.ylabel('True Positive Rate', fontsize=12)
+    plt.title('ROC Curves - Logistic Regression Comparison', fontsize=14, fontweight='bold')
+    plt.legend(loc='lower right', fontsize=11)
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig('roc_curve.jpg', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print("\nROC Curves saved as 'roc_curve.jpg'")
 
     coef_df = pd.DataFrame({
         'feature': feature_names,

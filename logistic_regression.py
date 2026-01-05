@@ -85,7 +85,7 @@ y_proba_custom = forward_pass(X_test_scaled, weights_custom, bias_custom)
 y_pred_custom = (y_proba_custom >= 0.5).astype(int)
 
 # sklearn baseline
-lr_sklearn = SklearnLR(random_state=42, max_iter=1000, C=10.0)
+lr_sklearn = SklearnLR(random_state=42, max_iter=15000, C=10.0)
 lr_sklearn.fit(X_train_scaled, y_train)
 y_pred_sklearn = lr_sklearn.predict(X_test_scaled)
 y_proba_sklearn = lr_sklearn.predict_proba(X_test_scaled)[:, 1]
