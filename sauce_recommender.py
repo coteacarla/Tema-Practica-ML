@@ -103,7 +103,7 @@ def train_sauce_models(df_modified, base_feature_cols):
         
         weights, bias = train_logistic_regression(
             X_train_scaled.values, y_train,
-            learning_rate=0.5, n_iterations=15000,
+            learning_rate=0.25, n_iterations=15000,
             regularization=0.1, early_stopping_patience=5
         )
         

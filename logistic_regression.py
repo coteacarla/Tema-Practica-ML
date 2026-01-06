@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression as SklearnLR
 from evaluation import evaluate_and_report
@@ -32,6 +33,7 @@ def train_logistic_regression(X, y, learning_rate, n_iterations, regularization,
     
     best_loss = float('inf')
     patience = 0
+    loss_history = []
     
     for iteration in range(n_iterations):
         predictions = forward_pass(X, weights, bias)
@@ -39,6 +41,7 @@ def train_logistic_regression(X, y, learning_rate, n_iterations, regularization,
         bce = -np.mean(y * np.log(predictions_clipped) + (1 - y) * np.log(1 - predictions_clipped))
         l2 = (regularization / (2 * X.shape[0])) * np.dot(weights, weights)
         loss = bce + l2
+        loss_history.append(loss)
         
       
         dw, db = backward_pass(X, y, predictions, weights, regularization)
@@ -55,7 +58,7 @@ def train_logistic_regression(X, y, learning_rate, n_iterations, regularization,
                 break
     
     print(f"Final loss: {loss:.4f}, Iterations: {iteration + 1}")
-    return weights, bias
+    return weights, bias, loss_history
 
 
 df = pd.read_csv('dataset-bon-features.csv')
@@ -73,13 +76,21 @@ X_train_scaled = (X_train - mean) / std
 X_test_scaled = (X_test - mean) / std
 
 
-weights_custom, bias_custom = train_logistic_regression(
+weights_custom, bias_custom, loss_history = train_logistic_regression(
     X_train_scaled, y_train,
-    learning_rate=0.5,
+    learning_rate=0.25,
     n_iterations=15000,
     regularization=0.1,
     early_stopping_patience=5
 )
+
+plt.figure(figsize=(10, 6))
+plt.plot(loss_history, linewidth=2)
+plt.xlabel('Iteration', fontsize=12)
+plt.ylabel('Loss', fontsize=12)
+plt.title('Training Loss Curve', fontsize=14)
+plt.grid(True, alpha=0.3)
+plt.show()
 
 y_proba_custom = forward_pass(X_test_scaled, weights_custom, bias_custom)
 y_pred_custom = (y_proba_custom >= 0.5).astype(int)

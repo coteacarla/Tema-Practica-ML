@@ -259,8 +259,8 @@ Această secțiune detaliază procesul iterativ prin care am optimizat implement
 
 \subsection{Implementare finală}
 
-Pentru rezolvarea problemei de clasificare binară (predicția sosului \textit{Crazy Sauce}), a fost implementată Regresia Logistică.
-Minimizarea erorii s-a realizat folosind funcția de cost Binary Cross-Entropy, aceasta fiind standardul pentru problemele de clasificare probabilistică. 
+Pentru rezolvarea problemei de clasificare binară (predicția sosului \textit{Crazy Sauce}), a fost implementată Regresia Logistică folosind metoda Gradient Descent.
+Minimizarea erorii s-a realizat folosind funcția de cost Binary Cross-Entropy, aceasta fiind standardul pentru problemele de clasificare binară. 
 
 În varianta finală, am implementat mecanismul de regularizare L2 pentru a penaliza ponderile excesive și a evita overfitting-ul. A fost inclus și un mecanism de early stopping setat să se declanșeze după 5 epoci consecutive în care funcția de loss crește, deși acesta nu a fost declanșat pe parcursul experimentelor finale, modelul convergând stabil.
 
@@ -272,13 +272,15 @@ Nu în ultimul rând, stabilitatea numerică la începutul antrenării a fost as
 
 Performanța modelului a fost obținută printr-un proces iterativ de optimizare, rezultatele fiind monitorizate constant comparativ cu baseline-ul \texttt{sklearn}.
 
-În prima fază a experimentelor, am rulat modelul pe datele brute cu regularizare L2 și un $lr=0.1$. Această abordare a rezultat într-o acuratețe modestă de aproximativ $65.83\%$, sub-performând masiv față de implementarea de referință ($76.47\%$). Diferența de peste $10\%$ a indicat clar că simpla relație liniară între produsele brute și variabila țintă este insuficientă sau că datele necesită o scalare corespunzătoare.
+În prima fază a experimentelor, am rulat modelul pe datele brute cu regularizare L2 și un $lr=0.1$. Această abordare a rezultat într-o acuratețe modestă de aproximativ $65.83\%$, sub-performând masiv față de implementarea de referință ($76.47\%$). Diferența de peste $10\%$ a indicat clar că datele necesită o scalare corespunzătoare.
 
-Un salt major a fost realizat prin adăugarea de trăsături de tip contor (\textit{counter features}). Maparea produselor specifice și generarea unor contoare per categorie au permis modelului să generalizeze comportamentul clienților. Această modificare a propulsat acuratețea la aproximativ $87\%$, ajungând ulterior la $96.64\%$ după normalizarea datelor.
+Un salt major a fost realizat prin adăugarea de trăsături de tip contor (\textit{counter features}). Maparea produselor specifice și generarea unor contoare per categorie au permis modelului să generalizeze comportamentul clienților. Această modificare a propulsat acuratețea la aproximativ $87\%$ , după normalizarea datelor ajungând ulterior la $96.64\%$.
 
-Ulterior, am setat o rată de învățare agresivă ($learning\_rate = 0.5$) combinată cu mecanismul de \textit{Early Stopping}. Diferența critică a fost făcută de numărul de iterații. Rularea pentru 10.000 de iterații a adus modelul la paritate cu \texttt{sklearn} ($99.16\%$), iar extinderea la 15.000 de iterații a permis depășirea baseline-ului pe metricile punctuale, atingând un Recall perfect de 1.0000 și o acuratețe de 99.44\%.
+Ulterior, am setat o rată de învățare agresivă ($learning\_rate = 0.25$) combinată cu mecanismul de Early Stopping (patience = 5 epoci), însă, în mod surprinzător, acesta nu a fost declanșat pe parcursul experimentelor. 
 
-Testând limitele absolute ale implementării prin rularea a 50.000 de iterații, am reușit să minimizez funcția de cost până la valoarea de $0.0160$.
+Diferența critică a fost făcută de numărul de iterații. Rularea pentru 10.000 de iterații a adus modelul la paritate cu \texttt{sklearn} ($99.16\%$), iar extinderea la 15.000 de iterații a permis depășirea baseline-ului pe metricile punctuale, atingând o acuratețe de 99.44\%.
+
+Am mai experimentat și testând limitele absolute ale implementării prin rularea a 50.000 de iterații, am reușit să minimizez funcția de loss până la valoarea de $0.0160$, și se putea observa de pe plot-ul funcției de loss că aceasta încă scădea.
 
 Este important de menționat și un experiment care nu a dat rezultatele așteptate: implementarea unui \textit{Learning Rate Decay}. Scăderea treptată a ratei de învățare a degradat performanța la nivelul etapelor intermediare (Acc $\approx 98.32\%$), deoarece rata scădea prea rapid, împiedicând modelul să parcurgă pașii necesari pentru a ajunge în zona de minim global atinsă anterior cu rata constantă.
 
@@ -370,7 +372,7 @@ Arhitectura a fost adaptată prin antrenarea a 8 modele distincte, câte unul pe
 
 \subsubsection*{Performanța la Nivel de Clasificator Individual}
 
-Fiecare dintre cele 8 modele a convers dupa 15000 de iterații (max(Loss) $\approx 0.0019$).
+Fiecare dintre cele 8 modele a convers dupa 15000 de iterații (max(Loss) $\approx 0.0024$).
 
 \begin{table}[h]
     \centering
@@ -380,14 +382,14 @@ Fiecare dintre cele 8 modele a convers dupa 15000 de iterații (max(Loss) $\appr
         \toprule
         \textbf{Tip Sos} & \textbf{Final Loss} & \textbf{Accuracy} \\
         \midrule
-        Crazy Sauce & 0.0019 & 0.9994 \\
-        Cheddar Sauce & 0.0020 & \1.0000 \\
-        Extra Cheddar Sauce & 0.0005 & \textbf{1.0000} \\
-        Garlic Sauce & 0.0019 & 0.9987 \\
-        Tomato Sauce & 0.0019 & 0.9994 \\
-        Blueberry Sauce & 0.0019 & \1.0000 \\
-        Spicy Sauce & 0.0019 & 1.0000 \\
-        Pink Sauce & 0.0018 & 0.9987 \\
+        Crazy Sauce & 0.0022 & 0.9994 \\
+        Cheddar Sauce & 0.0024 & 1.0000 \\
+        Extra Cheddar Sauce & 0.0007 & 1.0000 \\
+        Garlic Sauce & 0.0023 & 0.9987 \\
+        Tomato Sauce & 0.0024 & 0.9994 \\
+        Blueberry Sauce & 0.0024 & 1.0000 \\
+        Spicy Sauce & 0.0024 & 1.0000 \\
+        Pink Sauce & 0.0023 & 0.9987 \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -398,7 +400,7 @@ Pentru evaluare, am comparat sistemul nostru cu un \textbf{Baseline de Popularit
 
 \begin{table}[h]
     \centering
-    \caption{Comparație Model Recomandare vs. Baseline Popularitate}
+    \caption{Comparație Model Recomandare vs. Baseline Popularitate globală}
     \vspace{0.2cm}
     \begin{tabular}{lcccc}
         \toprule
