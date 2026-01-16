@@ -22,44 +22,75 @@ def backward_pass(X, y, predictions, weights, regularization):
     db = np.mean(error)
     return dw, db
 
-
-def train_logistic_regression(X, y, learning_rate, n_iterations, regularization, early_stopping_patience):
-    #Xavier
+def train_logistic_regression(X, y, learning_rate=0.01, n_iterations=15000, regularization=0.1, 
+                              early_stopping_patience=10, tol=1e-6, decay_rate=0.0):
+    
     np.random.seed(42)
-    n_features = X.shape[1]
+    m, n_features = X.shape
     limit = np.sqrt(1.0 / n_features)
     weights = np.random.uniform(-limit, limit, n_features)
     bias = 0.0
     
     best_loss = float('inf')
-    patience = 0
+    patience_counter = 0
     loss_history = []
     
+    beta1 = 0.9 
+    beta2 = 0.999 
+    epsilon = 1e-8
+    
+    m_w, v_w = np.zeros_like(weights), np.zeros_like(weights)
+    m_b, v_b = 0.0, 0.0
+    t = 0 
+    
+    current_lr = learning_rate
+
     for iteration in range(n_iterations):
+        if decay_rate > 0:
+            current_lr = learning_rate / (1 + decay_rate * iteration)
+
         predictions = forward_pass(X, weights, bias)
+        
         predictions_clipped = np.clip(predictions, 1e-15, 1 - 1e-15)
         bce = -np.mean(y * np.log(predictions_clipped) + (1 - y) * np.log(1 - predictions_clipped))
-        l2 = (regularization / (2 * X.shape[0])) * np.dot(weights, weights)
+        l2 = (regularization / (2 * m)) * np.dot(weights, weights)
         loss = bce + l2
         loss_history.append(loss)
         
-      
         dw, db = backward_pass(X, y, predictions, weights, regularization)
         
-        weights -= learning_rate * dw
-        bias -= learning_rate * db
+        t += 1
         
-        if loss < best_loss:
+        m_w = beta1 * m_w + (1 - beta1) * dw
+        v_w = beta2 * v_w + (1 - beta2) * (dw ** 2)
+        
+        m_b = beta1 * m_b + (1 - beta1) * db
+        v_b = beta2 * v_b + (1 - beta2) * (db ** 2)
+        
+        m_w_hat = m_w / (1 - beta1 ** t)
+        v_w_hat = v_w / (1 - beta2 ** t)
+        
+        m_b_hat = m_b / (1 - beta1 ** t)
+        v_b_hat = v_b / (1 - beta2 ** t)
+        
+        weights -= current_lr * m_w_hat / (np.sqrt(v_w_hat) + epsilon)
+        bias -= current_lr * m_b_hat / (np.sqrt(v_b_hat) + epsilon)
+        
+        if best_loss - loss > tol:
             best_loss = loss
-            patience = 0
+            patience_counter = 0
         else:
-            patience += 1
-            if patience >= early_stopping_patience:
-                break
-    
-    print(f"Final loss: {loss:.4f}, Iterations: {iteration + 1}")
-    return weights, bias, loss_history
+            patience_counter += 1
+        
+        if patience_counter >= early_stopping_patience:
+            print(f"Converged early at iteration {iteration}")
+            break
+            
+        if iteration % 1000 == 0:
+            print(f"Iter {iteration}: Loss {loss:.5f}")
 
+    print(f"Final loss: {loss:.5f}, Iterations: {iteration + 1}")
+    return weights, bias, loss_history
 
 df = pd.read_csv('dataset-bon-features.csv')
 X, y = df.drop(['id_bon', 'y'], axis=1).fillna(0), df['y'].values
@@ -72,16 +103,16 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 mean = X_train.mean(axis=0)
 std = X_train.std(axis=0)
-X_train_scaled = (X_train - mean) / std
-X_test_scaled = (X_test - mean) / std
+X_train_scaled = (X_train - mean) / (std + 1e-8)
+X_test_scaled = (X_test - mean) / (std + 1e-8)
 
 
 weights_custom, bias_custom, loss_history = train_logistic_regression(
     X_train_scaled, y_train,
-    learning_rate=0.25,
+    learning_rate=0.01,
     n_iterations=15000,
     regularization=0.1,
-    early_stopping_patience=5
+    early_stopping_patience=10
 )
 
 plt.figure(figsize=(10, 6))

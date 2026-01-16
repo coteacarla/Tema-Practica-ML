@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-
 SAUCES = [
     'Crazy Sauce', 'Cheddar Sauce', 'Extra Cheddar Sauce', 'Garlic Sauce',
     'Tomato Sauce', 'Blueberry Sauce', 'Spicy Sauce', 'Pink Sauce'
@@ -12,11 +11,9 @@ K_VALUES = [1, 3, 5]
 def sigmoid(z):
     return 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))
 
-
 def forward_pass(X, weights, bias):
     z = np.dot(X, weights) + bias
     return sigmoid(z)
-
 
 def backward_pass(X, y, predictions, weights, regularization):
     m = X.shape[0]
@@ -25,42 +22,62 @@ def backward_pass(X, y, predictions, weights, regularization):
     db = np.mean(error)
     return dw, db
 
-
-def train_logistic_regression(X, y, learning_rate=0.5, n_iterations=15000, regularization=0.1, early_stopping_patience=5):
-    #Xavier
+def train_logistic_regression(X, y, learning_rate=0.01, n_iterations=15000, regularization=0.1, 
+                              early_stopping_patience=10, tol=1e-6, decay_rate=0.0):
     np.random.seed(42)
-    n_features = X.shape[1]
+    m, n_features = X.shape
     limit = np.sqrt(1.0 / n_features)
     weights = np.random.uniform(-limit, limit, n_features)
     bias = 0.0
     
     best_loss = float('inf')
-    patience = 0
+    patience_counter = 0
     
+    beta1 = 0.9 
+    beta2 = 0.999 
+    epsilon = 1e-8
+    m_w, v_w = np.zeros_like(weights), np.zeros_like(weights)
+    m_b, v_b = 0.0, 0.0
+    t = 0 
+    current_lr = learning_rate
+
     for iteration in range(n_iterations):
+        if decay_rate > 0:
+            current_lr = learning_rate / (1 + decay_rate * iteration)
+
         predictions = forward_pass(X, weights, bias)
         predictions_clipped = np.clip(predictions, 1e-15, 1 - 1e-15)
         
-        bce = -np.mean(y * np.log(predictions_clipped) + (1 - y) * np.log(1 - predictions_clipped))
-        l2 = (regularization / (2 * X.shape[0])) * np.dot(weights, weights)
-        loss = bce + l2
-        
+        if iteration % 100 == 0: 
+            bce = -np.mean(y * np.log(predictions_clipped) + (1 - y) * np.log(1 - predictions_clipped))
+            l2 = (regularization / (2 * m)) * np.dot(weights, weights)
+            loss = bce + l2
+            
+            if best_loss - loss > tol:
+                best_loss = loss
+                patience_counter = 0
+            else:
+                patience_counter += 1
+                if patience_counter >= early_stopping_patience:
+                    break
+
         dw, db = backward_pass(X, y, predictions, weights, regularization)
         
-        weights -= learning_rate * dw
-        bias -= learning_rate * db
+        t += 1
+        m_w = beta1 * m_w + (1 - beta1) * dw
+        v_w = beta2 * v_w + (1 - beta2) * (dw ** 2)
+        m_b = beta1 * m_b + (1 - beta1) * db
+        v_b = beta2 * v_b + (1 - beta2) * (db ** 2)
         
-        if loss < best_loss:
-            best_loss = loss
-            patience = 0
-        else:
-            patience += 1
-            if patience >= early_stopping_patience:
-                break
-    
-    print(f"Final loss: {loss:.4f}, Iterations: {iteration + 1}")
-    return weights, bias
+        m_w_hat = m_w / (1 - beta1 ** t)
+        v_w_hat = v_w / (1 - beta2 ** t)
+        m_b_hat = m_b / (1 - beta1 ** t)
+        v_b_hat = v_b / (1 - beta2 ** t)
+        
+        weights -= current_lr * m_w_hat / (np.sqrt(v_w_hat) + epsilon)
+        bias -= current_lr * m_b_hat / (np.sqrt(v_b_hat) + epsilon)
 
+    return weights, bias
 
 def load_and_prepare_data():
     df_modified = pd.read_csv('dataset-modified-features.csv')
@@ -78,152 +95,116 @@ def load_and_prepare_data():
     base_feature_cols = list(df_modified.drop(['id_bon'], axis=1).columns)
     return df_modified, base_feature_cols
 
-
-def train_sauce_models(df_modified, base_feature_cols):
+def train_sauce_models(X_train_df, X_test_df, base_feature_cols):
     models = {}
     results = {}
     
+    print("Training models...")
     for sauce in SAUCES:
         sauce_col = f'has_{sauce.lower().replace(" ", "_")}'
         sauce_product_col = f'count_product_{sauce.lower().replace(" ", "_")}'
         
-        feature_cols = [col for col in base_feature_cols if col != sauce_col and col != sauce_product_col]
+        feature_cols = [
+            col for col in base_feature_cols 
+            if col != sauce_col and col != sauce_product_col
+        ]
         
-        X = df_modified[feature_cols].fillna(0)
-        y = df_modified[sauce_col].values
+        X_train = X_train_df[feature_cols].fillna(0).values
+        y_train = X_train_df[sauce_col].values
         
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, stratify=y, random_state=42
-        )
+        X_test = X_test_df[feature_cols].fillna(0).values
+        y_test = X_test_df[sauce_col].values
         
         mean = X_train.mean(axis=0)
         std = X_train.std(axis=0)
-        X_train_scaled = (X_train - mean) / std
-        X_test_scaled = (X_test - mean) / std
+        X_train_scaled = (X_train - mean) / (std + 1e-8)
+        X_test_scaled = (X_test - mean) / (std + 1e-8)
         
         weights, bias = train_logistic_regression(
-            X_train_scaled.values, y_train,
-            learning_rate=0.25, n_iterations=15000,
-            regularization=0.1, early_stopping_patience=5
+            X_train_scaled, y_train,
+            learning_rate=0.01, regularization=0.1
         )
         
-        y_proba = forward_pass(X_test_scaled.values, weights, bias)
+        y_proba = forward_pass(X_test_scaled, weights, bias)
         y_pred = (y_proba >= 0.5).astype(int)
-        
         acc = (y_pred == y_test).mean()
-        prec = np.sum((y_pred == 1) & (y_test == 1)) / np.sum(y_pred == 1) if np.sum(y_pred == 1) > 0 else 0
-        rec = np.sum((y_pred == 1) & (y_test == 1)) / np.sum(y_test == 1) if np.sum(y_test == 1) > 0 else 0
         
         models[sauce] = {
             'weights': weights, 'bias': bias,
-            'mean': mean.values, 'std': std.values,
+            'mean': mean, 'std': std,
             'feature_cols': feature_cols
         }
+        results[sauce] = acc
         
-        results[sauce] = {
-            'accuracy': acc, 'precision': prec, 'recall': rec,
-            'y_test': y_test, 'y_pred': y_pred, 'y_proba': y_proba
-        }
-    
-    print("\nAccuracy Summary:")
-    for sauce in SAUCES:
-        acc = results[sauce]['accuracy']
-        print(f"  {sauce:25s}: {acc:.4f}")
-    
-    return models, results
-
+    print("Individual Model Accuracies:", results)
+    return models
 
 def get_model_recommendations(basket_features, models, k=3):
     recommendations = {}
     
     for sauce, model in models.items():
         sauce_col = f'has_{sauce.lower().replace(" ", "_")}'
-        
-        if basket_features[sauce_col] == 1:
-            continue
+        if basket_features[sauce_col] == 1: continue
         
         feature_cols = model['feature_cols']
         X_basket = basket_features[feature_cols].values.reshape(1, -1)
-        X_scaled = (X_basket - model['mean']) / model['std']
+        
+        X_scaled = (X_basket - model['mean']) / (model['std'] + 1e-8)
         
         prob = forward_pass(X_scaled, model['weights'], model['bias'])[0]
         recommendations[sauce] = prob
     
-    sorted_recs = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
-    return sorted_recs[:k]
+    return sorted(recommendations.items(), key=lambda x: x[1], reverse=True)[:k]
 
-
-def get_popularity_recommendations(df_modified, k=3):
+def get_popularity_recommendations(df_train, k=3):
     popularity = {}
     for sauce in SAUCES:
         sauce_col = f'has_{sauce.lower().replace(" ", "_")}'
-        popularity[sauce] = df_modified[sauce_col].mean()
+        popularity[sauce] = df_train[sauce_col].mean()
+    return sorted(popularity.items(), key=lambda x: x[1], reverse=True)[:k]
+
+def evaluate_models(df_test, df_train_ref, models):
+    print("\nStarting Global Evaluation...")
     
-    sorted_pop = sorted(popularity.items(), key=lambda x: x[1], reverse=True)
-    return sorted_pop[:k]
-
-
-def evaluate_models(df_modified, base_feature_cols, models):
-    X_dummy = df_modified[base_feature_cols].fillna(0)
-    y_dummy = df_modified[f'has_{SAUCES[0].lower().replace(" ", "_")}'].values
-    _, _, test_indices, _ = train_test_split(
-        range(len(X_dummy)), y_dummy, test_size=0.2, stratify=y_dummy, random_state=42
-    )
+    pop_recs_list = get_popularity_recommendations(df_train_ref, k=5)
+    pop_rec_sauces = [sauce for sauce, pop in pop_recs_list]
     
     results_hit_precision = {
         k: {'model': {'hit': [], 'precision': []}, 'popularity': {'hit': [], 'precision': []}}
         for k in K_VALUES
     }
     
-    for idx in test_indices:
-        receipt = df_modified.iloc[idx].copy()
+    for idx, receipt in df_test.iterrows():
+        actual_sauces = {s for s in SAUCES if receipt[f'has_{s.lower().replace(" ", "_")}'] == 1}
         
-        actual_sauces = set()
-        for sauce in SAUCES:
-            sauce_col = f'has_{sauce.lower().replace(" ", "_")}'
-            if receipt[sauce_col] == 1:
-                actual_sauces.add(sauce)
-        
-       
-        if len(actual_sauces) == 0:
-            continue
+        if len(actual_sauces) == 0: continue
         
         basket_no_sauce = receipt.copy()
         for sauce in SAUCES:
-            sauce_col = f'has_{sauce.lower().replace(" ", "_")}'
-            basket_no_sauce[sauce_col] = 0
+            basket_no_sauce[f'has_{sauce.lower().replace(" ", "_")}'] = 0
         
-       
         model_recs = get_model_recommendations(basket_no_sauce, models, k=5)
         model_rec_sauces = [sauce for sauce, prob in model_recs]
         
-        pop_recs = get_popularity_recommendations(df_modified, k=5)
-        pop_rec_sauces = [sauce for sauce, pop in pop_recs][:5]
-        
-      
         for k in K_VALUES:
-            hit_model = len(set(model_rec_sauces[:k]) & actual_sauces) > 0
-            precision_model = len(set(model_rec_sauces[:k]) & actual_sauces) / k
-            results_hit_precision[k]['model']['hit'].append(1 if hit_model else 0)
-            results_hit_precision[k]['model']['precision'].append(precision_model)
+            top_k_model = model_rec_sauces[:k]
+            hits = len(set(top_k_model) & actual_sauces)
+            results_hit_precision[k]['model']['hit'].append(1 if hits > 0 else 0)
+            results_hit_precision[k]['model']['precision'].append(hits / k)
             
-            hit_pop = len(set(pop_rec_sauces[:k]) & actual_sauces) > 0
-            precision_pop = len(set(pop_rec_sauces[:k]) & actual_sauces) / k
-            results_hit_precision[k]['popularity']['hit'].append(1 if hit_pop else 0)
-            results_hit_precision[k]['popularity']['precision'].append(precision_pop)
-    
-    print("\nModel vs Baseline:")
+            top_k_pop = pop_rec_sauces[:k]
+            hits_pop = len(set(top_k_pop) & actual_sauces)
+            results_hit_precision[k]['popularity']['hit'].append(1 if hits_pop > 0 else 0)
+            results_hit_precision[k]['popularity']['precision'].append(hits_pop / k)
+
+    print("\n--- Final Results (Test Set) ---")
     for k in K_VALUES:
         hit_model = np.mean(results_hit_precision[k]['model']['hit'])
         hit_pop = np.mean(results_hit_precision[k]['popularity']['hit'])
-        prec_model = np.mean(results_hit_precision[k]['model']['precision'])
-        prec_pop = np.mean(results_hit_precision[k]['popularity']['precision'])
-        
-        print(f"Hit@{k}: Model {hit_model:.4f} vs Baseline {hit_pop:.4f} (Δ {(hit_model - hit_pop):+.4f})")
-        print(f"Precision@{k}: Model {prec_model:.4f} vs Baseline {prec_pop:.4f} (Δ {(prec_model - prec_pop):+.4f})")
-
+        print(f"Hit@{k}: Model {hit_model:.4f} vs Baseline {hit_pop:.4f} (Δ {hit_model - hit_pop:+.4f})")
 
 if __name__ == '__main__':
     df_modified, base_feature_cols = load_and_prepare_data()
-    models, results = train_sauce_models(df_modified, base_feature_cols)
-    evaluate_models(df_modified, base_feature_cols, models)
+    df_train, df_test = train_test_split(df_modified, test_size=0.2, random_state=42)
+    models = train_sauce_models(df_train, df_test, base_feature_cols)
+    evaluate_models(df_test, df_train, models)
