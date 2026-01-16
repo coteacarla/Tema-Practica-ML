@@ -259,12 +259,12 @@ Această secțiune detaliază procesul iterativ prin care am optimizat implement
 
 \subsection{Implementare finală}
 
-Pentru rezolvarea problemei de clasificare binară (predicția sosului \textit{Crazy Sauce}), a fost implementată Regresia Logistică folosind metoda Gradient Descent.
+Pentru rezolvarea problemei de clasificare binară (predicția sosului \textit{Crazy Sauce}), a fost implementată Regresia Logistică folosind metoda Gradient Descent cu optimizator Adam cu un $\alpha = 0.01$.
 Minimizarea erorii s-a realizat folosind funcția de cost Binary Cross-Entropy, aceasta fiind standardul pentru problemele de clasificare binară. 
 
-În varianta finală, am implementat mecanismul de regularizare L2 pentru a penaliza ponderile excesive și a evita overfitting-ul. A fost inclus și un mecanism de early stopping setat să se declanșeze după 5 epoci consecutive în care funcția de loss crește, deși acesta nu a fost declanșat pe parcursul experimentelor finale, modelul convergând stabil.
+În varianta finală, am implementat mecanismul de regularizare L2 pentru a penaliza ponderile excesive și a evita overfitting-ul. A fost inclus și un mecanism de early stopping setat să se declanșeze după 10 epoci consecutive în care funcția de loss crește.
 
-Un aspect crucial pentru eficiența algoritmului de optimizare a fost preprocesarea datelor prin standardizare. Am transformat variabilele de intrare astfel încât să aibă media 0 și deviația standard 1. Această uniformizare a suprafeței de eroare a permis utilizarea unei rate de învățare agresive ($learning\_rate = 0.5$) fără riscul divergenței. 
+Un aspect crucial pentru eficiența algoritmului de optimizare a fost preprocesarea datelor prin standardizare. Am transformat variabilele de intrare astfel încât să aibă media 0 și deviația standard 1. 
 
 Nu în ultimul rând, stabilitatea numerică la începutul antrenării a fost asigurată prin inițializarea ponderilor folosind metoda Xavier, prevenind astfel saturația prematură a funcției de activare Sigmoid.
 
@@ -272,19 +272,34 @@ Nu în ultimul rând, stabilitatea numerică la începutul antrenării a fost as
 
 Performanța modelului a fost obținută printr-un proces iterativ de optimizare, rezultatele fiind monitorizate constant comparativ cu baseline-ul \texttt{sklearn}.
 
+\subsubsection*{Experimente cu SGD fără optimizator}
+
 În prima fază a experimentelor, am rulat modelul pe datele brute cu regularizare L2 și un $lr=0.1$. Această abordare a rezultat într-o acuratețe modestă de aproximativ $65.83\%$, sub-performând masiv față de implementarea de referință ($76.47\%$). Diferența de peste $10\%$ a indicat clar că datele necesită o scalare corespunzătoare.
 
-Un salt major a fost realizat prin adăugarea de trăsături de tip contor (\textit{counter features}). Maparea produselor specifice și generarea unor contoare per categorie au permis modelului să generalizeze comportamentul clienților. Această modificare a propulsat acuratețea la aproximativ $87\%$ , după normalizarea datelor ajungând ulterior la $96.64\%$.
+Un salt major a fost realizat prin adăugarea de trăsături de tip contor (\textit{counter features}). Maparea produselor specifice și generarea unor contoare per categorie au permis modelului să generalizeze comportamentul clienților. Această modificare a propulsat acuratețea la aproximativ $87\%$, după normalizarea datelor ajungând ulterior la $96.64\%$.
 
-Ulterior, am setat o rată de învățare agresivă ($learning\_rate = 0.25$) combinată cu mecanismul de Early Stopping (patience = 5 epoci), însă, în mod surprinzător, acesta nu a fost declanșat pe parcursul experimentelor. 
+Ulterior, am setat o rată de învățare agresivă ($learning\_rate = 0.3$) combinată cu mecanismul de Early Stopping (patience = 5 epoci), însă, în mod surprinzător, acesta nu a fost declanșat pe parcursul experimentelor. 
 
-Diferența critică a fost făcută de numărul de iterații. Rularea pentru 10.000 de iterații a adus modelul la paritate cu \texttt{sklearn} ($99.16\%$), iar extinderea la 15.000 de iterații a permis depășirea baseline-ului pe metricile punctuale, atingând o acuratețe de 99.44\%.
+Diferența critică a fost făcută de numărul de iterații. Rularea pentru 10.000 de iterații a adus modelul la paritate cu \texttt{sklearn} ($99.16\%$), iar extinderea la 15.000 de iterații a permis depășirea baseline-ului pe metricile punctuale, atingând o acuratețe de $99.44\%$.
 
 Am mai experimentat și testând limitele absolute ale implementării prin rularea a 50.000 de iterații, am reușit să minimizez funcția de loss până la valoarea de $0.0160$, și se putea observa de pe plot-ul funcției de loss că aceasta încă scădea.
 
 Este important de menționat și un experiment care nu a dat rezultatele așteptate: implementarea unui \textit{Learning Rate Decay}. Scăderea treptată a ratei de învățare a degradat performanța la nivelul etapelor intermediare (Acc $\approx 98.32\%$), deoarece rata scădea prea rapid, împiedicând modelul să parcurgă pașii necesari pentru a ajunge în zona de minim global atinsă anterior cu rata constantă.
 
-\subsection{Evaluarea Modelului și Interpretarea Rezultatelor}
+\subsubsection*{Experimente cu Optimizator Adam}
+
+Deoarece rata de învățare din experimentele anterioare era foarte agresivă, iar \textit{learning rate decay}-ul nu a funcționat la înălțimea așteptărilor, am integrat un optimizator \textbf{Adam} (Adaptive Moment Estimation) și am modificat patience = 10 în cadrul mecanismului de Early Stopping.
+
+Parametrii utilizați pentru Adam au fost:
+\begin{itemize}
+    \item \textbf{Learning Rate}: $\alpha = 0.01$.
+    \item \textbf{Exponential Decay Rates}: $\beta_1 = 0.9$, $\beta_2 = 0.999$.
+    \item \textbf{Epsilon}: $\epsilon = 10^{-8}$.
+\end{itemize}
+
+Utilizarea optimizatorului Adam a schimbat radical dinamica antrenării. Deși acuratețea finală a rămas similară cu cea mai bună variantă SGD ($99.44\%$), \textbf{viteza de convergență a crescut semnificativ}. 
+
+Dacă metoda SGD necesita 15.000 de iterații pentru a stabiliza funcția de cost în jurul valorii de $0.0022$, optimizatorul Adam a atins același prag de eroare și performanță în aproximativ \textbf{3.500 de iterații}. Acest lucru demonstrează eficiența superioară a gradientului adaptiv în navigarea suprafeței de eroare, eliminând necesitatea setării manuale a unei rate de învățare riscante.
 
 \begin{table}[h]
     \centering
@@ -292,13 +307,13 @@ Este important de menționat și un experiment care nu a dat rezultatele aștept
     \vspace{0.2cm}
     \begin{tabular}{lccc}
         \toprule
-        \textbf{Metrică} & \textbf{Custom Implementation} & \textbf{sklearn Baseline} & \textbf{Diferență} \\
+        \textbf{Metrică} & \textbf{Custom Implementation} & \textbf{sklearn} & \textbf{Diferență} \\
         \midrule
-        Accuracy & 0.9944 & 0.9916 & +0.0028\% \\
-        Precision & 0.9896 & 0.9895 & +0.0001\% \\
-        Recall & 1.0000 & 0.9947 & +0.0053\% \\
-        F1-Score & 0.9948 & 0.9921 & +0.0026\% \\
-        ROC-AUC & 0.9967 & 0.9995 & -0.0028\% \\
+        Accuracy & 0.9944 & 0.9916 & +0.0028 \\
+        Precision & 0.9896 & 0.9895 & +0.0001 \\
+        Recall & 1.0000 & 0.9947 & +0.0053 \\
+        F1-Score & 0.9948 & 0.9921 & +0.0027 \\
+        ROC-AUC & 0.9996 & 0.9995 & +0.0001 \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -360,7 +375,7 @@ Extinzând arhitectura validată la punctul anterior, am dezvoltat un sistem de 
 
 \subsection{Abordare și Implementare}
 
-Deoarece problema implică recomandarea unuia dintre cele 8 sosuri posibile, am adoptat strategia One-vs-All. Arhitectura de regresie logistică utilizată este identică cu cea de la 2.1, însă aplicată pe setul extins de date.
+Deoarece problema implică recomandarea unuia dintre cele 8 sosuri posibile, am adoptat strategia One-vs-All. Arhitectura de regresie logistică utilizată este identică cu cea de la 2.1 cu Adam, însă aplicată pe setul extins de date.
 
 \subsubsection*{Diferențe față de Task 2.1}
 
@@ -372,8 +387,6 @@ Arhitectura a fost adaptată prin antrenarea a 8 modele distincte, câte unul pe
 
 \subsubsection*{Performanța la Nivel de Clasificator Individual}
 
-Fiecare dintre cele 8 modele a convers dupa 15000 de iterații (max(Loss) $\approx 0.0024$).
-
 \begin{table}[h]
     \centering
     \caption{Acuratețea modelelor individuale per tip de sos}
@@ -382,14 +395,14 @@ Fiecare dintre cele 8 modele a convers dupa 15000 de iterații (max(Loss) $\appr
         \toprule
         \textbf{Tip Sos} & \textbf{Final Loss} & \textbf{Accuracy} \\
         \midrule
-        Crazy Sauce & 0.0022 & 0.9994 \\
-        Cheddar Sauce & 0.0024 & 1.0000 \\
+        Crazy Sauce & 0.0020 & 0.9994 \\
+        Cheddar Sauce & 0.0020 & 1.0000 \\
         Extra Cheddar Sauce & 0.0007 & 1.0000 \\
-        Garlic Sauce & 0.0023 & 0.9987 \\
-        Tomato Sauce & 0.0024 & 0.9994 \\
-        Blueberry Sauce & 0.0024 & 1.0000 \\
-        Spicy Sauce & 0.0024 & 1.0000 \\
-        Pink Sauce & 0.0023 & 0.9987 \\
+        Garlic Sauce & 0.0020 & 0.9987 \\
+        Tomato Sauce & 0.0019 & 1.0000 \\
+        Blueberry Sauce & 0.0020 & 1.0000 \\
+        Spicy Sauce & 0.0020 & 1.0000 \\
+        Pink Sauce & 0.0018 & 1.0000 \\
         \bottomrule
     \end{tabular}
 \end{table}
